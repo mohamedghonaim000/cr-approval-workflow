@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.log
+.angular/
+AGENT.md
+CANDIDATE_BRIEF.md
+IMPLEMENTATION_NOTES.md
