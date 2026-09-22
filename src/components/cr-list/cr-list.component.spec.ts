@@ -30,4 +30,18 @@ describe('CrListComponent', () => {
 		expect(fixture.nativeElement.querySelector('.cr-list__empty')).not.toBeNull();
 		expect(fixture.nativeElement.querySelector('.cr-list__table')).toBeNull();
 	});
+
+	it('filters rendered rows by status', async () => {
+		const fixture = await render(users.approver);
+
+		const select: HTMLSelectElement = fixture.nativeElement.querySelector('.cr-list__filter');
+		select.value = 'PENDING_APPROVAL';
+		select.dispatchEvent(new Event('change'));
+		fixture.detectChanges();
+
+		const rows: HTMLTableRowElement[] = Array.from(fixture.nativeElement.querySelectorAll('.cr-list__row'));
+		expect(rows).toHaveLength(1);
+		expect(rows[0].textContent).toContain('CR-1');
+		expect(rows[0].textContent).toContain('PENDING_APPROVAL');
+	});
 });
