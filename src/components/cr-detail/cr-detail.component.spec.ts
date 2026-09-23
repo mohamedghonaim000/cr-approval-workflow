@@ -3,6 +3,7 @@ import { CrDetailComponent } from './cr-detail.component';
 import { SessionService } from '../../session/session.service';
 import { users } from '../../api/fixtures';
 import { ReqUser } from '../../models/cr.models';
+import { CrApiService } from '../../api/cr-api.service';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
@@ -30,5 +31,120 @@ describe('CrDetailComponent', () => {
 		const fixture = await render(users.viewer, 'CR-1'); // viewer: cr_r_o only; CR-1 is PENDING_APPROVAL
 		const approveBtn: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__approve');
 		expect(approveBtn.disabled).toBe(true);
+	});
+
+	it('renders the approval timeline chronologically', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+
+		const actions = Array.from(fixture.nativeElement.querySelectorAll('.cr-timeline__action')).map((element: HTMLElement) =>
+			element.textContent?.trim(),
+		);
+
+		expect(actions).toEqual(['CREATE', 'SUBMIT', 'SEND_FOR_APPROVAL']);
+	});
+
+	it('renders the line-item diff and monetary totals', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const rows: HTMLTableRowElement[] = Array.from(fixture.nativeElement.querySelectorAll('.cr-diff__row'));
+		const skuA = rows.find((row) => row.textContent?.includes('SKU-A'));
+		const skuB = rows.find((row) => row.textContent?.includes('SKU-B'));
+
+		expect(rows).toHaveLength(2);
+		expect(skuA?.getAttribute('data-kind')).toBe('changed');
+		expect(skuB?.getAttribute('data-kind')).toBe('unchanged');
+		expect(fixture.nativeElement.querySelector('.cr-detail__totals').textContent).toContain('USD 8,000.00');
+		expect(fixture.nativeElement.querySelector('.cr-detail__totals').textContent).toContain('USD 8,500.00');
+		expect(fixture.nativeElement.querySelector('.cr-detail__delta').textContent).toContain('USD 500.00');
+	});
+
+	it('requires a rejection reason before enabling Reject', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const reason: HTMLTextAreaElement = fixture.nativeElement.querySelector('.cr-actions__reason');
+		const rejectButton: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__reject-btn');
+
+		expect(rejectButton.disabled).toBe(true);
+
+		reason.dispatchEvent(new Event('blur'));
+		fixture.detectChanges();
+		expect(fixture.nativeElement.querySelector('.cr-actions__reason-error')).not.toBeNull();
+
+		reason.value = 'Budget exceeds the approved limit.';
+		reason.dispatchEvent(new Event('input'));
+		fixture.detectChanges();
+		expect(rejectButton.disabled).toBe(false);
+	});
+
+	it('approves a pending CR and adds the decision to the timeline', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const approveButton: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__approve');
+
+		approveButton.click();
+		fixture.detectChanges();
+		expect(approveButton.disabled).toBe(true);
+
+		await flush();
+		fixture.detectChanges();
+
+		expect(fixture.nativeElement.querySelector('.cr-status').textContent).toContain('APPROVED');
+		const actions = Array.from(fixture.nativeElement.querySelectorAll('.cr-timeline__action')).map((element: HTMLElement) =>
+			element.textContent?.trim(),
+		);
+		expect(actions).toEqual(['CREATE', 'SUBMIT', 'SEND_FOR_APPROVAL', 'APPROVE']);
+	});
+
+	it('rejects a pending CR and records the rejection reason', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const reason: HTMLTextAreaElement = fixture.nativeElement.querySelector('.cr-actions__reason');
+		const rejectButton: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__reject-btn');
+
+		reason.value = 'Budget exceeds the approved limit.';
+		reason.dispatchEvent(new Event('input'));
+		fixture.detectChanges();
+		rejectButton.click();
+
+		await flush();
+		fixture.detectChanges();
+
+		expect(fixture.nativeElement.querySelector('.cr-status').textContent).toContain('REJECTED');
+		const entries: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('.cr-timeline__entry'));
+		expect(entries.at(-1)?.textContent).toContain('REJECT');
+		expect(entries.at(-1)?.textContent).toContain('Budget exceeds the approved limit.');
+	});
+
+	it('shows an error and allows retry when Approve fails', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const api = fixture.debugElement.injector.get(CrApiService);
+		const approveButton: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__approve');
+		api.failNext = true;
+
+		approveButton.click();
+		fixture.detectChanges();
+		expect(approveButton.disabled).toBe(true);
+
+		await flush();
+		fixture.detectChanges();
+
+		expect(fixture.nativeElement.querySelector('.cr-actions__error').textContent).toContain('Network error');
+		expect(fixture.nativeElement.querySelector('.cr-status').textContent).toContain('PENDING_APPROVAL');
+		expect(approveButton.disabled).toBe(false);
+	});
+
+	it('prevents duplicate approval requests while the API response is slow', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const api = fixture.debugElement.injector.get(CrApiService);
+		const approveSpy = jest.spyOn(api, 'approve');
+		const approveButton: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__approve');
+		api.latencyMs = 25;
+
+		approveButton.click();
+		approveButton.click();
+		fixture.detectChanges();
+
+		expect(approveSpy).toHaveBeenCalledTimes(1);
+		expect(approveButton.disabled).toBe(true);
+
+		await new Promise((resolve) => setTimeout(resolve, api.latencyMs + 5));
+		fixture.detectChanges();
+		expect(fixture.nativeElement.querySelector('.cr-status').textContent).toContain('APPROVED');
 	});
 });
