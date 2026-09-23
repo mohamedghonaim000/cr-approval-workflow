@@ -31,4 +31,14 @@ describe('CrDetailComponent', () => {
 		const approveBtn: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__approve');
 		expect(approveBtn.disabled).toBe(true);
 	});
+
+	it('renders the approval timeline chronologically', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+
+		const actions = Array.from(fixture.nativeElement.querySelectorAll('.cr-timeline__action')).map((element: HTMLElement) =>
+			element.textContent?.trim(),
+		);
+
+		expect(actions).toEqual(['CREATE', 'SUBMIT', 'SEND_FOR_APPROVAL']);
+	});
 });
