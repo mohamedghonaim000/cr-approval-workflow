@@ -66,4 +66,23 @@ describe('CrListComponent', () => {
 		fixture.detectChanges();
 		expect(fixture.nativeElement.querySelectorAll('.cr-list__row')).toHaveLength(3);
 	});
+
+	it('shows loading while the list request is pending', async () => {
+		TestBed.configureTestingModule({
+			imports: [CrListComponent],
+			providers: [{ provide: SessionService, useValue: { user: users.approver } }],
+		});
+		await TestBed.compileComponents();
+		const api = TestBed.inject(CrApiService);
+		api.latencyMs = 25;
+		const fixture = TestBed.createComponent(CrListComponent);
+
+		fixture.detectChanges();
+		expect(fixture.nativeElement.querySelector('.cr-list__loading')).not.toBeNull();
+		expect(fixture.nativeElement.querySelector('.cr-list__table')).toBeNull();
+
+		await new Promise((resolve) => setTimeout(resolve, api.latencyMs + 5));
+		fixture.detectChanges();
+		expect(fixture.nativeElement.querySelectorAll('.cr-list__row')).toHaveLength(3);
+	});
 });
