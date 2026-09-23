@@ -114,4 +114,23 @@ describe('CrDetailComponent', () => {
 		expect(fixture.nativeElement.querySelector('.cr-status').textContent).toContain('PENDING_APPROVAL');
 		expect(approveButton.disabled).toBe(false);
 	});
+
+	it('prevents duplicate approval requests while the API response is slow', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const api = fixture.debugElement.injector.get(CrApiService);
+		const approveSpy = jest.spyOn(api, 'approve');
+		const approveButton: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__approve');
+		api.latencyMs = 25;
+
+		approveButton.click();
+		approveButton.click();
+		fixture.detectChanges();
+
+		expect(approveSpy).toHaveBeenCalledTimes(1);
+		expect(approveButton.disabled).toBe(true);
+
+		await new Promise((resolve) => setTimeout(resolve, api.latencyMs + 5));
+		fixture.detectChanges();
+		expect(fixture.nativeElement.querySelector('.cr-status').textContent).toContain('APPROVED');
+	});
 });
