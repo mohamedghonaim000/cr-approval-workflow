@@ -3,6 +3,7 @@ import { CrListComponent } from './cr-list.component';
 import { SessionService } from '../../session/session.service';
 import { users } from '../../api/fixtures';
 import { ReqUser } from '../../models/cr.models';
+import { CrApiService } from '../../api/cr-api.service';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
@@ -43,5 +44,26 @@ describe('CrListComponent', () => {
 		expect(rows).toHaveLength(1);
 		expect(rows[0].textContent).toContain('CR-1');
 		expect(rows[0].textContent).toContain('PENDING_APPROVAL');
+	});
+
+	it('shows an error and reloads successfully after Retry', async () => {
+		TestBed.configureTestingModule({
+			imports: [CrListComponent],
+			providers: [{ provide: SessionService, useValue: { user: users.approver } }],
+		});
+		await TestBed.compileComponents();
+		TestBed.inject(CrApiService).failNext = true;
+		const fixture = TestBed.createComponent(CrListComponent);
+
+		fixture.detectChanges();
+		await flush();
+		fixture.detectChanges();
+		expect(fixture.nativeElement.querySelector('.cr-list__error').textContent).toContain('Network error');
+
+		const retryButton: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-list__error button');
+		retryButton.click();
+		await flush();
+		fixture.detectChanges();
+		expect(fixture.nativeElement.querySelectorAll('.cr-list__row')).toHaveLength(3);
 	});
 });
