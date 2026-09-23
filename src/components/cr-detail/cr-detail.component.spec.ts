@@ -76,4 +76,23 @@ describe('CrDetailComponent', () => {
 		);
 		expect(actions).toEqual(['CREATE', 'SUBMIT', 'SEND_FOR_APPROVAL', 'APPROVE']);
 	});
+
+	it('rejects a pending CR and records the rejection reason', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const reason: HTMLTextAreaElement = fixture.nativeElement.querySelector('.cr-actions__reason');
+		const rejectButton: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__reject-btn');
+
+		reason.value = 'Budget exceeds the approved limit.';
+		reason.dispatchEvent(new Event('input'));
+		fixture.detectChanges();
+		rejectButton.click();
+
+		await flush();
+		fixture.detectChanges();
+
+		expect(fixture.nativeElement.querySelector('.cr-status').textContent).toContain('REJECTED');
+		const entries: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('.cr-timeline__entry'));
+		expect(entries.at(-1)?.textContent).toContain('REJECT');
+		expect(entries.at(-1)?.textContent).toContain('Budget exceeds the approved limit.');
+	});
 });
