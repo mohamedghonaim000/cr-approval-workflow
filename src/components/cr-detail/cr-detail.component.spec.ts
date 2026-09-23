@@ -3,6 +3,7 @@ import { CrDetailComponent } from './cr-detail.component';
 import { SessionService } from '../../session/session.service';
 import { users } from '../../api/fixtures';
 import { ReqUser } from '../../models/cr.models';
+import { CrApiService } from '../../api/cr-api.service';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
@@ -94,5 +95,23 @@ describe('CrDetailComponent', () => {
 		const entries: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('.cr-timeline__entry'));
 		expect(entries.at(-1)?.textContent).toContain('REJECT');
 		expect(entries.at(-1)?.textContent).toContain('Budget exceeds the approved limit.');
+	});
+
+	it('shows an error and allows retry when Approve fails', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const api = fixture.debugElement.injector.get(CrApiService);
+		const approveButton: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__approve');
+		api.failNext = true;
+
+		approveButton.click();
+		fixture.detectChanges();
+		expect(approveButton.disabled).toBe(true);
+
+		await flush();
+		fixture.detectChanges();
+
+		expect(fixture.nativeElement.querySelector('.cr-actions__error').textContent).toContain('Network error');
+		expect(fixture.nativeElement.querySelector('.cr-status').textContent).toContain('PENDING_APPROVAL');
+		expect(approveButton.disabled).toBe(false);
 	});
 });
