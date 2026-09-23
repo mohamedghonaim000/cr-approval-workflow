@@ -43,6 +43,20 @@ describe('CrDetailComponent', () => {
 		expect(actions).toEqual(['CREATE', 'SUBMIT', 'SEND_FOR_APPROVAL']);
 	});
 
+	it('renders the line-item diff and monetary totals', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const rows: HTMLTableRowElement[] = Array.from(fixture.nativeElement.querySelectorAll('.cr-diff__row'));
+		const skuA = rows.find((row) => row.textContent?.includes('SKU-A'));
+		const skuB = rows.find((row) => row.textContent?.includes('SKU-B'));
+
+		expect(rows).toHaveLength(2);
+		expect(skuA?.getAttribute('data-kind')).toBe('changed');
+		expect(skuB?.getAttribute('data-kind')).toBe('unchanged');
+		expect(fixture.nativeElement.querySelector('.cr-detail__totals').textContent).toContain('USD 8,000.00');
+		expect(fixture.nativeElement.querySelector('.cr-detail__totals').textContent).toContain('USD 8,500.00');
+		expect(fixture.nativeElement.querySelector('.cr-detail__delta').textContent).toContain('USD 500.00');
+	});
+
 	it('requires a rejection reason before enabling Reject', async () => {
 		const fixture = await render(users.approver, 'CR-1');
 		const reason: HTMLTextAreaElement = fixture.nativeElement.querySelector('.cr-actions__reason');
