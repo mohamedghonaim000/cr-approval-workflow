@@ -41,4 +41,21 @@ describe('CrDetailComponent', () => {
 
 		expect(actions).toEqual(['CREATE', 'SUBMIT', 'SEND_FOR_APPROVAL']);
 	});
+
+	it('requires a rejection reason before enabling Reject', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const reason: HTMLTextAreaElement = fixture.nativeElement.querySelector('.cr-actions__reason');
+		const rejectButton: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__reject-btn');
+
+		expect(rejectButton.disabled).toBe(true);
+
+		reason.dispatchEvent(new Event('blur'));
+		fixture.detectChanges();
+		expect(fixture.nativeElement.querySelector('.cr-actions__reason-error')).not.toBeNull();
+
+		reason.value = 'Budget exceeds the approved limit.';
+		reason.dispatchEvent(new Event('input'));
+		fixture.detectChanges();
+		expect(rejectButton.disabled).toBe(false);
+	});
 });
