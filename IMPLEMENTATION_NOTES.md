@@ -14,7 +14,13 @@ Both screen components use `ViewState<T>` to make their asynchronous request sta
 
 `CrDetailComponent` follows the same loading/loaded/error pattern for a selected CR. The template renders its diff and totals from the loaded detail. The `timeline` getter creates and sorts a copy of the audit entries so rendering does not mutate component state. Action-specific state is separate: `submitting` prevents concurrent submissions, `actionError` retains an actionable error while keeping the reviewed CR visible, and `rejectControl` owns the rejection-reason validation state.
 
-## 3. Invariants I keep
+## 3. User scope and cross-screen updates
+
+The active user's organization scopes the list. Switching users clears the prior selection, so a request from another organization is not loaded in the detail pane. Selecting a row reloads its details whenever the selected ID changes.
+
+Following a successful approval or rejection, the detail component notifies the shell and the list reloads immediately to show the new status. A decision is available only for a pending request when the active user has an approval policy: `approver` can decide on `CR-1`, while `otherOrg` can decide on `CR-9`.
+
+## 4. Invariants I keep
 
 | Invariant | How / where |
 |---|---|
@@ -26,7 +32,7 @@ Both screen components use `ViewState<T>` to make their asynchronous request sta
 | Timeline rendering does not mutate API/state data. | `timeline` sorts a spread copy of `detail.audit`. |
 | Filtering does not destroy the loaded list. | `visibleRows` returns a filtered copy for display only. |
 
-## 4. Testing strategy
+## 5. Testing strategy
 
 I used pure Jest tests for `computeDiff`, because it is a deterministic utility with no Angular rendering concerns. Those tests cover added, removed, quantity-only changed, description-only changed, and unchanged line items.
 
@@ -34,20 +40,20 @@ For list and detail behavior, I used Angular TestBed and asserted rendered DOM o
 
 I did not add a separate Reject failure test because Approve and Reject use the same `submitting`/`actionError`/`try-catch-finally` action pattern. I covered Reject's distinct concerns—validation, status transition, and reason audit entry—and covered the shared failure path through Approve.
 
-## 5. Assumptions
+## 6. Assumptions
 
 - The existing policy model contains approval policies but no separate reject policy. I treated rejection as part of the approval workflow, so the same approval policy gates both actions.
 - The supplied detail test expects the Approve button to exist and be disabled for a read-only viewer. I preserve that DOM contract: Approve is visible but disabled for viewers, while Reject is not offered. Both component methods still enforce authorization.
 - The mock API is in-memory and deliberately does not persist changes after a browser refresh. In a production application, the API/backend would persist the decision and the list would be refreshed or updated after a successful action.
 - ISO timestamps are generated with `new Date().toISOString()` so audit events have a consistent UTC format.
 
-## 6. Where I used AI
+## 7. Where I used AI
 
 I used an AI coding assistant to investigate the scaffold, explain Angular concepts and the business workflow, identify the original defects, propose implementation/test approaches, and help draft several tests and this documentation. I reviewed the resulting code, ran the validation commands locally, and can explain the state, permission, and test decisions.
 
-## 7. What I'd improve with more time
+## 8. What I'd improve with more time
 
-- Persist CR transitions in a real backend and refresh or synchronize the list immediately after an action succeeds.
+- Persist CR transitions in a real backend; the demo now refreshes the list after a successful action, but browser refresh still resets the in-memory data.
 - Add a dedicated Reject failure test and broader accessibility coverage, including focus management and clearer disabled-action explanations.
 - Add a filtered-empty message when a loaded list has no rows for the selected filter.
 - Replace the demo user switcher with authentication/token-derived session data and enforce authorization on the server as well as in the UI.
