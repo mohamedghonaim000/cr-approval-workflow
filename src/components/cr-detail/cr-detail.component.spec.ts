@@ -58,4 +58,22 @@ describe('CrDetailComponent', () => {
 		fixture.detectChanges();
 		expect(rejectButton.disabled).toBe(false);
 	});
+
+	it('approves a pending CR and adds the decision to the timeline', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const approveButton: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__approve');
+
+		approveButton.click();
+		fixture.detectChanges();
+		expect(approveButton.disabled).toBe(true);
+
+		await flush();
+		fixture.detectChanges();
+
+		expect(fixture.nativeElement.querySelector('.cr-status').textContent).toContain('APPROVED');
+		const actions = Array.from(fixture.nativeElement.querySelectorAll('.cr-timeline__action')).map((element: HTMLElement) =>
+			element.textContent?.trim(),
+		);
+		expect(actions).toEqual(['CREATE', 'SUBMIT', 'SEND_FOR_APPROVAL', 'APPROVE']);
+	});
 });
